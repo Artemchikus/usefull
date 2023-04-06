@@ -1,0 +1,53 @@
+dnf -y install net-tools - установка пакета для netstat
+netstat -pnltu - вывод всех портов
+
+dnf -y install setroubleshoot-server - установка пакета для sealert
+sealert -a /var/log/audit/audit.log - анализ ошибок SELinux и предложение решения
+cat /var/log/audit/audit.log | grep -i avc - ошибки связанные с SELinux
+semanage port -l - список настроек SELinux касательно портов
+getenforce - получение режима SELinux
+setenforce 0 - перевод SELinux в режим не настроенный доступ не блокирую но логирую 
+setenforce 1 - перевод SELinux в режим не настроенный доступ блокирую и логирую 
+getsebool -a - получение параметров SELinux
+setsebool -P <имя параметра> on/off - изменение параметра SELinux
+semanage port -a -t <тип объекта SELinux> -p <протокол> <порт> - добавление порт в исключения SELinux
+    тип объекта SELinux - обычно http_port_t (для базового http подключения)
+
+rabbitmqctl authenticate_user octavia octavia - проверка наличия пользователя в RabbitMQ
+rabbitmqctl status - информация о RabbitMQ
+
+df -h - информация по дисками и смонтированным папкам
+free -h - информация по использованию RAM
+lvs - информация по томам 
+
+cat /etc/hosts - файл с маппингом имен узлов к их IP
+cat /etc/fstab - файл с настойками монтирования папок (nfs клиенты)
+cat /etc/exports - файл с настройками экспорта папок (nfs сервер)
+cat /etc/sysconfig/iptables - файл с настройками iptables
+cat /etc/sysconfig/nfs - файл с настройкми nfs
+sysctl -a - послечение переменных sysconf
+
+cat /var/spool/mail/root - файл с сообщениями об ошибках
+
+journalctl -xe - вывод общей инфы об ошибках (в основном бесполезная, надо смотреть логи)
+systemctl status <имя сервиса>- вывод статуса сервиса
+systemctl list-units --type=service - вывод списка всех запущенных сервисов
+
+cat /etc/octavia/octavia.conf | grep -v "#" | grep -v -e '^$' - вывод всех заполненных параметров конфига
+tail -10 <путь к файлу логов> - последние 10 строчек логов
+
+ovs-vsctl show - информация об OpenvSwitch
+ovs-vsctl add-br <имя моста> - добавление моста
+ovs-vsctl add-port <имя моста> <сетевой интерфейс> - добавление порта на мост
+
+firewall-cmd --list-all - информация по firewalld
+firewall-cmd --add-port=<порт>/<протокол> - добавить порт в исключения файерволл
+firewall-cmd --add-service=<имя сервиса> - добавить сервис в исключения файерволл
+firewall-cmd --runtime-to-permanent - закрептить изменения навегда
+
+dnf repolist - список добавленных репозиториев
+
+dnf install -y tcpdump - установка tcpdump
+tcpdump -i <сетевой интерфейс> port <порт> -w <название файла> - сохранение вывода tcpdump в файл для дальнейшего анализа при помощи wireshark
+tcpdump -i <сетевой интерфейс> -A port <порт> - захват и вывод всех пакетов приходящих на данный порт
+scp <файл> <имя пользователя>@<IP>:<местоположение>
