@@ -15,6 +15,9 @@ semanage port -a -t <тип объекта SELinux> -p <протокол> <по�
 
 rabbitmqctl authenticate_user octavia octavia - проверка наличия пользователя в RabbitMQ
 rabbitmqctl status - информация о RabbitMQ
+rabbitmqctl list_users - список пользователей RabbitMQ
+rabbitmqctl status - информация о RabbitMQ
+rabbitmqctl cluster_status - информация о кластере RabbitMQ
 
 df -h - информация по дисками и смонтированным папкам
 free -h - информация по использованию RAM
