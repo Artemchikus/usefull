@@ -1,0 +1,77 @@
+sudo dnf install -y qemu-kvm libvirt virt-install bridge-utils - установка всех необходимых пакетов для создания ВМ
+
+sudo mkdir /mnt/kvm/disk - создание папки для хранения потсоянных томов ВМ
+sudo mkdir /mnt/kvm/iso - создание папки для хранения ISO
+
+sudo qemu-img create -f qcow2 -o preallocation=metadata <путь к тому> <размер> - создание тома для ВМ
+
+cat << EOF >> default.xml
+<network>
+  <name>default</name>
+  <uuid>8299ce68-7dbb-44d1-9230-8be61ef1c033</uuid>
+  <forward mode='nat'/>
+  <bridge name='virbr0' stp='on' delay='0'/>
+  <mac address='52:54:00:df:95:7a'/>
+  <ip address='192.168.122.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.122.2' end='192.168.122.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF - создание файла определения сети ВМ
+
+sudo virsh net-define default.xml - создание дефолтной сети для ВМ на основе ранее созданного файла
+sudo net-autostart default - настройка автозапуска сети при перезагрузки ПК
+
+sudo wget https://mirror.stream.centos.org/9-stream/BaseOS/x86_64/iso/CentOS-Stream-9-20230313.0-x86_64-boot.iso - скачивание ISO для ОС виртуалок
+sudo mv CentOS-Stream-9-20230313.0-x86_64-boot.iso /mnt/kvm/iso - перенос ISO в специализированную папку
+
+sudo virt-install --name <имя> --os-type <тип ОС> --os-variant <название ОС> --location <путь к ISO> --graphics none --disk <путь к тому>,size=<размер>,format=<тип тома>  --ram <размер опретивки> --network network=<имя сети> --virt-type <тип виртуализации> --arch <архитектура процессора> --console pty,target_type=serial --extra-args 'console=ttyS0,115200n8 serial'
+- создание ВМ для сетевого узла
+    --network bridge=<имя моста>,model=virtio
+    --graphics none --console pty,target_type=serial --extra-args 'console=ttyS0,115200n8 serial' - параметры для вывода консоли ВМ прямо в локальнуют коносль ПК
+
+Создание моста в локльную сеть компьютера, для того чтобы ВМ можно было показать соседям по комнате
+sudo nmcli conn add type bridge con-name br0 ifname br0 - создание подключения для моста
+sudo nmcli conn modify br0 ipv4.addresses '<ip моста в локальной сети>/24' - выдача постоянного ip подключению
+sudo nmcli conn modify br0 ipv4.gateway '<ip роутера в локальной сети>' - настройка ip роутера в локальной сети
+sudo nmcli conn modify br0 ipv4.dns '<ip роутера в локальной сети>' - настройка ip DNS сервера в локальной сети
+sudo nmcli conn modify br0 ipv4.method manual - настройка постоянного ip (по дефолту DHCP)
+sudo ip a - найти название ethernet интерфейса через которое будет пробрасываться мост (eth* или enp*)
+sudo nmcli conn add type ethernet slave-type bridge con-name bridge-br0 ifname <имя ethernet интерфейса> master br0 - создание подключения связывающего eternet интерфейс с мостом
+sudo nmcli conn up br0 - поднятие моста
+sudo nmcli conn show | grep ethernet - вывод имени подключения которое нужно вырубить 
+sudo nmcli conn down <имя подключения> - выключение бывщего ethernet подключения
+sudo nmcli conn show  --active - проверка
+
+Удаление созданного моста (если захочется)
+sudo nmcli conn up <имя подключения> - поднятие бывшего ethernet подключения
+sudo nmcli conn down br0 - выключение моста
+sudo nmcli conn del br0 - удаление моста
+sudo nmcli conn del bridge-br0 - удаление связи моста с ethernet подключением
+
+Команды для управления ВМ
+sudo virsh snapshot-create-as --domain <имя ВМ> --name <имя снимка> - создание снимка ВМ
+sudo virsh snapshot-revert --domain <имя ВМ> --snapshotname <имя снимка> - откат ВМ к снимку
+sudo virsh list --all - список всех ВМ даже не работающих
+sudo virsh net-list --all - список всех сетей даже не работающих
+sudo virsh dumpxml --domain <имя ВМ> - вывод XML файла описывающего ВМ
+sudo virsh net-dumpxml --network <имя сети> - вывод XML файла описывающего сеть
+sudo virsh snapshot-list --domain <имя ВМ> - вывод всех снимков ВМ
+sudo virsh sutdown --domain <имя ВМ> - отправление сигнала ВМ "пожалуйста выключись"
+sudo virsh start --domain <имя ВМ> - запуск ВМ
+sudo virsh console --domain <имя ВМ> - подключение к консоли ВМ
+sudo virsh destroy --domain <имя ВМ> - выключение ВМ aka выдергивание из розетки
+sudo virsh undefine --domain <имя ВМ> - удаление ВМ (том сохраняется)
+sudo virsh snapshot-delete --domain <имя ВМ> --snapshotname <имя снимка> - удаление снимка ВМ  
+sudo virsh net-destroy <имя сети> - выключение сети
+sudo virsh net-undefine --network <имя сети> - удаление сети
+sudo virsh edit --domain <имя ВМ> - редактирование XML файла описывающего ВМ (только так, а то изменения не применятся)
+sudo virsh net-edit --network <имя ВМ> - реадктирование XML файла описывающего сеть (только так, а то изменения не применятся)
+sudo virsh attach-interface --domain <имя ВМ> --type network --source <имя сети> --model virtio --persistent - присоединение сетевого интерфейса типа network к ВМ (навсегда)
+sudo virsh attach-interface --domain <имя ВМ> --type bridge --source br0 --model virtio --persistent - присоединение сетевого интерфейса типа bridge к ВМ (навсегда)
+sudo virsh detach-interface --domain <имя ВМ> --mac <мак адрес интерфейса> --type network --persistent - удаление сетевого интерфейса ВМ (навсегда)
+sudo qemu-img resize <путь к тому> +2G - расширение тома ВМ
+sudo virsh attach-disk --domain <имя ВМ> --source <путь к тому> --target <название диска внутри ВМ> --persistent - присоединение тома (диска) к ВМ (навсегда)
+sudo virsh detach-disk --domain <имя ВМ> --target <название диска внутри ВМ> --persistent - отсоединение тома (диска) от ВМ
+sudo virt-clone --original <имя ВМ> --auto-clone - клонирование ВМ
